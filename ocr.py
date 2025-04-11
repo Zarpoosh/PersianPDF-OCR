@@ -1,42 +1,44 @@
-import os
-import pytesseract
-from PyPDF2 import PdfReader
-from PIL import Image
 from pdf2image import convert_from_path
+from pytesseract import image_to_pdf_or_hocr
 from PyPDF2 import PdfMerger
+from PIL import Image
+import os
 
-# تنظیم مسیرها
+# مسیر فایل ورودی و پوشه‌های کاری
 INPUT_PDF_PATH = "input/myfile.pdf"
-OUTPUT_DIR = "output"
-OUTPUT_PDF_NAME = "final_ocr.pdf"
+OUTPUT_FOLDER = "output"
 LANG = "fas"
 
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 print("📄 در حال پردازش OCR صفحات تصویری PDF...")
 
-# مرحله ۱: تبدیل مستقیم صفحات PDF تصویری به عکس‌ها
-reader = PdfReader(INPUT_PDF_PATH)
-total_pages = len(reader.pages)
-images = convert_from_path(INPUT_PDF_PATH, dpi=150)  # همزمان به تصاویر تبدیل می‌کنه
+# مرحله 1: تبدیل PDF به عکس
+images = convert_from_path(INPUT_PDF_PATH)
 
-merger = PdfMerger()
+# مرحله 2: OCR و ذخیره صفحات به صورت PDF جدا
+ocr_pdf_paths = []
+
 for i, image in enumerate(images):
-    print(f"🌀 صفحه {i+1}/{total_pages} در حال OCR...")
+    print(f"🌀 صفحه {i+1}/{len(images)} در حال OCR...")
 
-    # OCR و تولید PDF موقت
-    output_temp_pdf = os.path.join(OUTPUT_DIR, f"page_{i+1:03d}.pdf")
-    pdf_bytes = pytesseract.image_to_pdf_or_hocr(image, lang=LANG, extension='pdf')
+    pdf_bytes = image_to_pdf_or_hocr(image, lang=LANG, extension='pdf')
+    
+    output_temp_pdf = os.path.join(OUTPUT_FOLDER, f"page_{i+1}.pdf")
     with open(output_temp_pdf, 'wb') as f:
         f.write(pdf_bytes)
 
-    # اضافه کردن به فایل نهایی
-    merger.append(output_temp_pdf)
+    ocr_pdf_paths.append(output_temp_pdf)
 
-# مرحله نهایی: ذخیره PDF نهایی
-final_path = os.path.join(OUTPUT_DIR, OUTPUT_PDF_NAME)
-merger.write(final_path)
+# مرحله 3: ادغام فایل‌های PDF به یک فایل
+print("🧩 در حال ادغام فایل‌ها به یک PDF...")
+
+merger = PdfMerger()
+for pdf_path in ocr_pdf_paths:
+    merger.append(pdf_path)
+
+final_output = os.path.join(OUTPUT_FOLDER, "final_ocr_output.pdf")
+merger.write(final_output)
 merger.close()
 
-print(f"\n✅ OCR کامل شد. فایل نهایی ساخته شد: {final_path}")
+print(f"✅ همه صفحات به یک فایل PDF تبدیل شدند: {final_output}")
